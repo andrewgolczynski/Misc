@@ -1,0 +1,54 @@
+import pycuda.autoinit
+import pycuda.driver as drv
+import numpy as np
+from pycuda.compiler import SourceModule
+import scipy.sparse
+import pycuda.gpuarray as gpuarray
+
+
+def get_random_row(cols, avg, max_entries):
+    if (avg < max_entries):
+        return None #todo
+    vals = np.random.rand(cols)
+    other = vals
+    standard = scipy.sparse.random(1, cols, density=1, format="csr", dtype=np.float32)
+    standard_cols = standard.indices
+    standard_vals = standard.data
+    
+    for i in range(cols - avg):
+        choice = np.random.randint(0,cols - i)
+        standard_cols = np.delete(standard_cols, choice)
+        standard_vals = np.delete(standard_vals, choice)
+    
+    limited_vals = standard_vals
+    limited_cols = standard_cols
+    
+    for i in range(avg - max_entries):
+        choice = np.random.randint(0,avg - i)
+        limited_vals = np.delete(limited_vals, choice)
+        limited_cols = np.delete(limited_cols, choice)
+    
+    output_standard = scipy.sparse.csr_matrix((1,cols))
+    output_limited = scipy.sparse.csr_matrix((1,cols))
+    
+    output_standard.indices = standard_cols
+    output_standard.data = standard_vals
+    output_standard.indptr[1] = avg
+    
+    output_limited.indices = limited_cols
+    output_limited.data = limited_vals
+    output_limited.indptr[1] = max_entries
+    
+    return (output_standard, output_limited)
+        
+    
+def get_random_matrix(rows, cols, avg, max_entries):
+    counter = 0
+    current = get_random_row(cols, avg, max_entries)
+    output = current[1]
+    output_long = current[0]
+    for i in range(rows - 1):
+        current = get_random_row(cols, avg, max_entries)
+        output_long = scipy.sparse.vstack([output_long, current[0]])
+        output = scipy.sparse.vstack([output, current[1]])
+    return (output_long, output)
